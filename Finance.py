@@ -3,15 +3,39 @@ import pandas as pd
 from yahoofinancials import YahooFinancials
 import datetime as dt
 from flatten_json import flatten
+import numpy as np
 
 
-def CAGR(df, ticker):
-    "Calculate the Cumm Annual Growth Rate"
+def volatility(df):
+    "function to calculate annualised volatility of daily freqency prices"
     df = df.copy()
-    df[(df.Ticker == ticker)]
+    df["daily_ret"] = df["adjclose"].pct_change()
+    vol = df["daily_ret"].std() * np.sqrt(252)
+    return vol
+
+def sharpe(df,rf):
+    "function to calculate sharpe ratio, rf is the risk free rate"
+    df = df.copy()
+    c = CAGR(df)
+    v = volatility(df)
+    sr = (c - rf)/v
+    return sr
+    
+def sortino(df,rf):
+    "function to calculate sortino ratio, rf is the risk free rate"
+    df = df.copy()
+    df["daily_ret"] = df["adjclose"].pct_change()
+    neg_vol = df[df["daily_ret"]<0]["daily_ret"].std() * np.sqrt(252)
+    sr = (CAGR(df) - rf)/neg_vol
+    return sr
+
+def CAGR(df):
+    "Calculate the Cumm Annual Growth Rate for daily frequency data"
+    df = df.copy()
+
     df["daily_ret"] = df["adjclose"].pct_change()
     df["cum_return"] = (1 + df["daily_ret"]).cumprod()
-    n = len(df)/252
+    n = len(df)/252  # trading days in year
     CAGR = (df["cum_return"][-1])**(1/n) - 1
     return CAGR
 
@@ -92,5 +116,16 @@ print(prices)
 print(income)
 
 t = "AAPL"
-cagr = CAGR(prices, t)
+riskfreereturn = 0.02
+price = prices[(prices.Ticker == t)]
+
+
+cagr = CAGR(prices)
+vol = volatility(prices)
+sharpe = sharpe(prices, riskfreereturn)
+sortino = sortino(prices, riskfreereturn)
+
 print(f"CAGR for {t} is {cagr:.3%}")
+print(f"Volatility for {t} is {vol:.3%}")
+print(f"Sharpe Index for {t} is {sharpe:.3}")
+print(f"Sortino for {t} is {sortino:.3}")
