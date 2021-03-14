@@ -13,21 +13,24 @@ def volatility(df):
     vol = df["daily_ret"].std() * np.sqrt(252)
     return vol
 
-def sharpe(df,rf):
+
+def sharpe(df, rf):
     "function to calculate sharpe ratio, rf is the risk free rate"
     df = df.copy()
     c = CAGR(df)
     v = volatility(df)
     sr = (c - rf)/v
     return sr
-    
-def sortino(df,rf):
+
+
+def sortino(df, rf):
     "function to calculate sortino ratio, rf is the risk free rate"
     df = df.copy()
     df["daily_ret"] = df["adjclose"].pct_change()
-    neg_vol = df[df["daily_ret"]<0]["daily_ret"].std() * np.sqrt(252)
+    neg_vol = df[df["daily_ret"] < 0]["daily_ret"].std() * np.sqrt(252)
     sr = (CAGR(df) - rf)/neg_vol
     return sr
+
 
 def CAGR(df):
     "Calculate the Cumm Annual Growth Rate for daily frequency data"
@@ -66,66 +69,67 @@ def ExtractPrices(all_tickers):
     ohlv_dict = {}
     end_date = (dt.date.today()).strftime('%Y-%m-%d')
     beg_date = (dt.date.today()-dt.timedelta(1825)).strftime('%Y-%m-%d')
+    prices = pd.DataFrame({"formatted_date": [], "adjclose": [], "open": [], "low": [], "high": [], "volume": [], "ticker": []})
+
     for ticker in all_tickers:
-        yahoo_financials = YahooFinancials(ticker)
-        json_obj = yahoo_financials.get_historical_price_data(
+        yahoo_financials=YahooFinancials(ticker)
+        json_obj=yahoo_financials.get_historical_price_data(
             beg_date, end_date, "daily")
-        ohlv = json_obj[ticker]['prices']
-        temp = pd.DataFrame(
+        ohlv=json_obj[ticker]['prices']
+        temp=pd.DataFrame(
             ohlv)[["formatted_date", "adjclose", "open", "low", "high", "volume"]]
         temp.set_index("formatted_date", inplace=True)
         temp.dropna(inplace=True)
-        t = []
-        for value in temp['open']:
-            t.append(ticker)
-        # hlv_dict[ticker] = temp
-        temp['Ticker'] = t
-    return temp
+        temp['ticker']=ticker
+        prices=pd.concat([prices, temp])
+        #prices.set_index("formatted_date", inplace=True)
+    return prices
 
 
 def ExtractIncomeStatement(all_tickers):
 
     # Extract Income Statement
-    dict_df = {}
+    dict_df={}
     for ticker in all_tickers:
-        yahoo_financials = YahooFinancials(ticker)
-        income_statement_qt = yahoo_financials.get_financial_stmts(
+        yahoo_financials=YahooFinancials(ticker)
+        income_statement_qt=yahoo_financials.get_financial_stmts(
             'quarterly', 'income', reformat=True)
-        i = income_statement_qt.get('incomeStatementHistoryQuarterly')
-        flattenJSON = flatten(i)
+        i=income_statement_qt.get('incomeStatementHistoryQuarterly')
+        flattenJSON=flatten(i)
         dict_df.update(flattenJSON)
 
-    keys = [key.split('_') for key in dict_df.keys()]
-    values = list(dict_df.values())
-    df = pd.DataFrame(keys)
-    df['Value'] = values
+    keys=[key.split('_') for key in dict_df.keys()]
+    values=list(dict_df.values())
+    df=pd.DataFrame(keys)
+    df['Value']=values
     df.rename(columns={0: 'Ticker', 1: 'Ref',
                        2: 'Period', 3: 'Item'}, inplace=True)
-    df = df.drop(columns="Ref")
-    df.index = [x for x in range(0, len(df.values))]
-    df.index.name = 'id'
-    modDf = df.apply(lambda x: FixItemName(x) if x.name == 'Item' else x)
+    df=df.drop(columns="Ref")
+    df.index=[x for x in range(0, len(df.values))]
+    df.index.name='id'
+    modDf=df.apply(lambda x: FixItemName(x) if x.name == 'Item' else x)
     return modDf
 
 
-all_tickers = ["AAPL", "MSFT"]
-income = ExtractIncomeStatement(all_tickers)
-prices = ExtractPrices(all_tickers)
-
-print(prices)
-print(income)
-
-t = "AAPL"
-riskfreereturn = 0.02
-price = prices[(prices.Ticker == t)]
+all_tickers=["AAPL", "MSFT"]
+income=ExtractIncomeStatement(all_tickers)
+prices=ExtractPrices(all_tickers)
 
 
-cagr = CAGR(prices)
-vol = volatility(prices)
-sharpe = sharpe(prices, riskfreereturn)
-sortino = sortino(prices, riskfreereturn)
+t="MSFT"
+riskfreereturn=0.02
+price=prices[(prices.ticker == t)]
+
+
+cagr=CAGR(price)
+vol=volatility(price)
+sharpe=sharpe(price, riskfreereturn)
+sortino=sortino(price, riskfreereturn)
 
 print(f"CAGR for {t} is {cagr:.3%}")
 print(f"Volatility for {t} is {vol:.3%}")
 print(f"Sharpe Index for {t} is {sharpe:.3}")
 print(f"Sortino for {t} is {sortino:.3}")
+
+#print(prices)
+#print(income)
